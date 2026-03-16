@@ -167,10 +167,12 @@
         <el-table-column prop="phonetic" label="音标" width="120" />
         <el-table-column prop="meaning" label="释义" />
       </el-table>
-      <div class="dialog-footer">
-        <el-button @click="showWordBook = false">关闭</el-button>
-        <el-button type="primary" @click="exportWords">导出单词表</el-button>
-      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showWordBook = false">关闭</el-button>
+          <el-button type="primary" @click="exportWords">导出单词表</el-button>
+        </div>
+      </template>
     </el-dialog>
     
     <!-- 排行榜对话框 -->
@@ -220,229 +222,7 @@
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Clock, Trophy, Refresh } from '@element-plus/icons-vue'
-
-// 托业核心词汇库（200 个单词）
-const toeicWords = [
-  // 第 1 关：基础商务词汇（20 个）
-  { word: 'agenda', phonetic: '/əˈdʒendə/', meaning: '议程' },
-  { word: 'budget', phonetic: '/ˈbʌdʒɪt/', meaning: '预算' },
-  { word: 'candidate', phonetic: '/ˈkændɪdət/', meaning: '候选人' },
-  { word: 'deadline', phonetic: '/ˈdedlaɪn/', meaning: '截止日期' },
-  { word: 'employee', phonetic: '/ɪmˈplɔɪi/', meaning: '员工' },
-  { word: 'forecast', phonetic: '/ˈfɔːrkæst/', meaning: '预测' },
-  { word: 'headquarters', phonetic: '/ˈhedkwɔːrtərz/', meaning: '总部' },
-  { word: 'invoice', phonetic: '/ˈɪnvɔɪs/', meaning: '发票' },
-  { word: 'launch', phonetic: '/lɔːntʃ/', meaning: '推出' },
-  { word: 'manufacturer', phonetic: '/ˌmænjuˈfæktʃərər/', meaning: '制造商' },
-  { word: 'negotiate', phonetic: '/nɪˈɡoʊʃieɪt/', meaning: '谈判' },
-  { word: 'occupancy', phonetic: '/ˈɑːkjəpənsi/', meaning: '入住率' },
-  { word: 'personnel', phonetic: '/ˌpɜːrsəˈnel/', meaning: '人事部门' },
-  { word: 'quarterly', phonetic: '/ˈkwɔːrtərli/', meaning: '季度的' },
-  { word: 'revenue', phonetic: '/ˈrevənuː/', meaning: '收入' },
-  { word: 'shareholder', phonetic: '/ˈʃerhoʊldər/', meaning: '股东' },
-  { word: 'timetable', phonetic: '/ˈtaɪmteɪbl/', meaning: '时间表' },
-  { word: 'undertake', phonetic: '/ˌʌndərˈteɪk/', meaning: '承担' },
-  { word: 'vendor', phonetic: '/ˈvendər/', meaning: '供应商' },
-  { word: 'warehouse', phonetic: '/ˈwerhaʊs/', meaning: '仓库' },
-  
-  // 第 2 关：企业管理（20 个）
-  { word: 'yield', phonetic: '/jiːld/', meaning: '产量/收益' },
-  { word: 'merger', phonetic: '/ˈmɜːrdʒər/', meaning: '合并' },
-  { word: 'acquisition', phonetic: '/ˌækwɪˈzɪʃn/', meaning: '收购' },
-  { word: 'subsidiary', phonetic: '/səbˈsɪdieri/', meaning: '子公司' },
-  { word: 'competitor', phonetic: '/kəmˈpetɪtər/', meaning: '竞争对手' },
-  { word: 'strategic', phonetic: '/strəˈtiːdʒɪk/', meaning: '战略的' },
-  { word: 'efficient', phonetic: '/ɪˈfɪʃnt/', meaning: '高效的' },
-  { word: 'innovative', phonetic: '/ˈɪnəveɪtɪv/', meaning: '创新的' },
-  { word: 'collaborate', phonetic: '/kəˈlæbəreɪt/', meaning: '合作' },
-  { word: 'implement', phonetic: '/ˈɪmplɪment/', meaning: '实施' },
-  { word: 'potential', phonetic: '/pəˈtenʃl/', meaning: '潜力' },
-  { word: 'significant', phonetic: '/sɪɡˈnɪfɪkənt/', meaning: '重要的' },
-  { word: 'sustainable', phonetic: '/səˈsteɪnəbl/', meaning: '可持续的' },
-  { word: 'transparent', phonetic: '/trænsˈperənt/', meaning: '透明的' },
-  { word: 'versatile', phonetic: '/ˈvɜːrsətl/', meaning: '多功能的' },
-  { word: 'accountable', phonetic: '/əˈkaʊntəbl/', meaning: '负责任的' },
-  { word: 'comprehensive', phonetic: '/ˌkɑːmprɪˈhensɪv/', meaning: '全面的' },
-  { word: 'simultaneous', phonetic: '/ˌsaɪmlˈteɪniəs/', meaning: '同时的' },
-  { word: 'unprecedented', phonetic: '/ʌnˈpresɪdentɪd/', meaning: '史无前例的' },
-  { word: 'vulnerable', phonetic: '/ˈvʌlnərəbl/', meaning: '易受攻击的' },
-  
-  // 第 3 关：市场营销（20 个）
-  { word: 'advertising', phonetic: '/ˈædvərtaɪzɪŋ/', meaning: '广告' },
-  { word: 'brand', phonetic: '/brænd/', meaning: '品牌' },
-  { word: 'campaign', phonetic: '/kæmˈpeɪn/', meaning: '活动' },
-  { word: 'consumer', phonetic: '/kənˈsuːmər/', meaning: '消费者' },
-  { word: 'distribution', phonetic: '/ˌdɪstrɪˈbjuːʃn/', meaning: '分销' },
-  { word: 'export', phonetic: '/ˈekspɔːrt/', meaning: '出口' },
-  { word: 'franchise', phonetic: '/ˈfræntʃaɪz/', meaning: '特许经营' },
-  { word: 'guarantee', phonetic: '/ˌɡærənˈtiː/', meaning: '保证' },
-  { word: 'import', phonetic: '/ˈɪmpɔːrt/', meaning: '进口' },
-  { word: 'joint venture', phonetic: '/dʒɔɪnt ˈventʃər/', meaning: '合资企业' },
-  { word: 'kit', phonetic: '/kɪt/', meaning: '工具包' },
-  { word: 'license', phonetic: '/ˈlaɪsns/', meaning: '许可证' },
-  { word: 'market share', phonetic: '/ˈmɑːrkɪt ʃer/', meaning: '市场份额' },
-  { word: 'outlet', phonetic: '/ˈaʊtlet/', meaning: ' outlets' },
-  { word: 'promotion', phonetic: '/prəˈmoʊʃn/', meaning: '促销' },
-  { word: 'publicity', phonetic: '/pʌbˈlɪsəti/', meaning: '宣传' },
-  { word: 'retail', phonetic: '/ˈriːteɪl/', meaning: '零售' },
-  { word: 'sample', phonetic: '/ˈsæmpəl/', meaning: '样品' },
-  { word: 'trademark', phonetic: '/ˈtreɪdmɑːrk/', meaning: '商标' },
-  { word: 'wholesale', phonetic: '/ˈhoʊlseɪl/', meaning: '批发' },
-  
-  // 第 4 关：人力资源（20 个）
-  { word: 'applicant', phonetic: '/ˈæplɪkənt/', meaning: '申请人' },
-  { word: 'benefits', phonetic: '/ˈbenɪfɪts/', meaning: '福利' },
-  { word: 'commission', phonetic: '/kəˈmɪʃn/', meaning: '佣金' },
-  { word: 'contract', phonetic: '/ˈkɑːntrækt/', meaning: '合同' },
-  { word: 'dismiss', phonetic: '/dɪsˈmɪs/', meaning: '解雇' },
-  { word: 'evaluate', phonetic: '/ɪˈvæljueɪt/', meaning: '评估' },
-  { word: 'flexible', phonetic: '/ˈfleksəbl/', meaning: '灵活的' },
-  { word: 'grievance', phonetic: '/ˈɡriːvəns/', meaning: '申诉' },
-  { word: 'hire', phonetic: '/ˈhaɪər/', meaning: '雇佣' },
-  { word: 'incentive', phonetic: '/ɪnˈsentɪv/', meaning: '激励' },
-  { word: 'job description', phonetic: '/dʒɑːb dɪˈskrɪpʃn/', meaning: '职位描述' },
-  { word: 'qualifications', phonetic: '/ˌkwɑːlɪfɪˈkeɪʃnz/', meaning: '资格' },
-  { word: 'recruit', phonetic: '/rɪˈkruːt/', meaning: '招聘' },
-  { word: 'salary', phonetic: '/ˈsæləri/', meaning: '薪水' },
-  { word: 'training', phonetic: '/ˈtreɪnɪŋ/', meaning: '培训' },
-  { word: 'unemployment', phonetic: '/ˌʌnɪmˈplɔɪmənt/', meaning: '失业' },
-  { word: 'vacancy', phonetic: '/ˈveɪkənsi/', meaning: '空缺' },
-  { word: 'wage', phonetic: '/weɪdʒ/', meaning: '工资' },
-  { word: 'workforce', phonetic: '/ˈwɜːrkfɔːrs/', meaning: '劳动力' },
-  { word: 'resign', phonetic: '/rɪˈzaɪn/', meaning: '辞职' },
-  
-  // 第 5 关：财务会计（20 个）
-  { word: 'accounting', phonetic: '/əˈkaʊntɪŋ/', meaning: '会计' },
-  { word: 'asset', phonetic: '/ˈæset/', meaning: '资产' },
-  { word: 'balance sheet', phonetic: '/ˈbæləns ʃiːt/', meaning: '资产负债表' },
-  { word: 'bankrupt', phonetic: '/ˈbæŋkrʌpt/', meaning: '破产的' },
-  { word: 'capital', phonetic: '/ˈkæpɪtl/', meaning: '资本' },
-  { word: 'cash flow', phonetic: '/kæʃ floʊ/', meaning: '现金流' },
-  { word: 'credit', phonetic: '/ˈkredɪt/', meaning: '信用' },
-  { word: 'debit', phonetic: '/ˈdebɪt/', meaning: '借方' },
-  { word: 'depreciation', phonetic: '/dɪˌpriːʃiˈeɪʃn/', meaning: '折旧' },
-  { word: 'equity', phonetic: '/ˈekwəti/', meaning: '股权' },
-  { word: 'expenditure', phonetic: '/ɪkˈspendɪtʃər/', meaning: '支出' },
-  { word: 'financial', phonetic: '/faɪˈnænʃl/', meaning: '财务的' },
-  { word: 'income', phonetic: '/ˈɪnkʌm/', meaning: '收入' },
-  { word: 'investment', phonetic: '/ɪnˈvestmənt/', meaning: '投资' },
-  { word: 'liability', phonetic: '/ˌlaɪəˈbɪləti/', meaning: '负债' },
-  { word: 'mortgage', phonetic: '/ˈmɔːrɡɪdʒ/', meaning: '抵押' },
-  { word: 'overhead', phonetic: '/ˈoʊvərhed/', meaning: '管理费用' },
-  { word: 'profit', phonetic: '/ˈprɑːfɪt/', meaning: '利润' },
-  { word: 'tax', phonetic: '/tæks/', meaning: '税' },
-  { word: 'turnover', phonetic: '/ˈtɜːrnoʊvər/', meaning: '营业额' },
-  
-  // 第 6 关：办公事务（20 个）
-  { word: 'appointment', phonetic: '/əˈpɔɪntmənt/', meaning: '预约' },
-  { word: 'arrangement', phonetic: '/əˈreɪndʒmənt/', meaning: '安排' },
-  { word: 'briefcase', phonetic: '/ˈbriːfkeɪs/', meaning: '公文包' },
-  { word: 'calendar', phonetic: '/ˈkælɪndər/', meaning: '日历' },
-  { word: 'correspondence', phonetic: '/ˌkɔːrspɑːnˈdens/', meaning: '信件' },
-  { word: 'document', phonetic: '/ˈdɑːkjumənt/', meaning: '文件' },
-  { word: 'equipment', phonetic: '/ɪˈkwɪpmənt/', meaning: '设备' },
-  { word: 'file', phonetic: '/faɪl/', meaning: '档案' },
-  { word: 'itinerary', phonetic: '/aɪˈtɪnəreri/', meaning: '行程' },
-  { word: 'memo', phonetic: '/ˈmemoʊ/', meaning: '备忘录' },
-  { word: 'minutes', phonetic: '/ˈmɪnɪts/', meaning: '会议记录' },
-  { word: 'photocopier', phonetic: '/ˈfoʊtoʊkɑːpiər/', meaning: '复印机' },
-  { word: 'presentation', phonetic: '/ˌpreznˈteɪʃn/', meaning: '演示' },
-  { word: 'reception', phonetic: '/rɪˈsepʃn/', meaning: '接待' },
-  { word: 'stationery', phonetic: '/ˈsteɪʃənəri/', meaning: '文具' },
-  { word: 'teleconference', phonetic: '/ˈtelikɑːnfərəns/', meaning: '电话会议' },
-  { word: 'typing', phonetic: '/ˈtaɪpɪŋ/', meaning: '打字' },
-  { word: 'urgent', phonetic: '/ˈɜːrdʒənt/', meaning: '紧急的' },
-  { word: 'video conference', phonetic: '/ˈvɪdioʊ ˈkɑːnfərəns/', meaning: '视频会议' },
-  { word: 'workflow', phonetic: '/ˈwɜːrkfloʊ/', meaning: '工作流程' },
-  
-  // 第 7 关：商务旅行（20 个）
-  { word: 'accommodation', phonetic: '/əˌkɑːməˈdeɪʃn/', meaning: '住宿' },
-  { word: 'boarding pass', phonetic: '/ˈbɔːrdɪŋ pæs/', meaning: '登机牌' },
-  { word: 'business class', phonetic: '/ˈbɪznəs klæs/', meaning: '商务舱' },
-  { word: 'check-in', phonetic: '/ˈtʃek ɪn/', meaning: '办理登机' },
-  { word: 'confirmation', phonetic: '/ˌkɑːnfərˈmeɪʃn/', meaning: '确认' },
-  { word: 'departure', phonetic: '/dɪˈpɑːrtʃər/', meaning: '出发' },
-  { word: 'destination', phonetic: '/ˌdestɪˈneɪʃn/', meaning: '目的地' },
-  { word: 'economy class', phonetic: '/ɪˈkɑːnəmi klæs/', meaning: '经济舱' },
-  { word: 'excursion', phonetic: '/ɪkˈskɜːrʒn/', meaning: '短途旅行' },
-  { word: 'flight', phonetic: '/flaɪt/', meaning: '航班' },
-  { word: 'hospitality', phonetic: '/ˌhɑːspɪˈtæləti/', meaning: '款待' },
-  { word: 'luggage', phonetic: '/ˈlʌɡɪdʒ/', meaning: '行李' },
-  { word: 'reservation', phonetic: '/ˌrezərˈveɪʃn/', meaning: '预订' },
-  { word: 'sightseeing', phonetic: '/ˈsaɪtsiːɪŋ/', meaning: '观光' },
-  { word: 'souvenir', phonetic: '/ˌsuːvəˈnɪr/', meaning: '纪念品' },
-  { word: 'tourist', phonetic: '/ˈtʊrɪst/', meaning: '游客' },
-  { word: 'travel agency', phonetic: '/ˈtrævl ˈeɪdʒənsi/', meaning: '旅行社' },
-  { word: 'visa', phonetic: '/ˈviːzə/', meaning: '签证' },
-  { word: 'voucher', phonetic: '/ˈvaʊtʃər/', meaning: '优惠券' },
-  { word: 'zone', phonetic: '/zoʊn/', meaning: '区域' },
-  
-  // 第 8 关：餐饮服务（20 个）
-  { word: 'appetizer', phonetic: '/ˈæpɪtaɪzər/', meaning: '开胃菜' },
-  { word: 'beverage', phonetic: '/ˈbevərɪdʒ/', meaning: '饮料' },
-  { word: 'buffet', phonetic: '/bəˈfeɪ/', meaning: '自助餐' },
-  { word: 'catering', phonetic: '/ˈkeɪtərɪŋ/', meaning: '餐饮服务' },
-  { word: 'chef', phonetic: '/ʃef/', meaning: '厨师' },
-  { word: 'complimentary', phonetic: '/ˌkɑːmplɪˈmentri/', meaning: '免费的' },
-  { word: 'cuisine', phonetic: '/kwɪˈziːn/', meaning: '菜肴' },
-  { word: 'delicious', phonetic: '/dɪˈlɪʃəs/', meaning: '美味的' },
-  { word: 'dessert', phonetic: '/dɪˈzɜːrt/', meaning: '甜点' },
-  { word: 'entree', phonetic: '/ˈɑːntreɪ/', meaning: '主菜' },
-  { word: 'flavor', phonetic: '/ˈfleɪvər/', meaning: '味道' },
-  { word: 'ingredient', phonetic: '/ɪnˈɡriːdiənt/', meaning: '原料' },
-  { word: 'menu', phonetic: '/ˈmenjuː/', meaning: '菜单' },
-  { word: 'nutrition', phonetic: '/nuːˈtrɪʃn/', meaning: '营养' },
-  { word: 'organic', phonetic: '/ɔːrˈɡænɪk/', meaning: '有机的' },
-  { word: 'portion', phonetic: '/ˈpɔːrʃn/', meaning: '份量' },
-  { word: 'recipe', phonetic: '/ˈresəpi/', meaning: '食谱' },
-  { word: 'reservation', phonetic: '/ˌrezərˈveɪʃn/', meaning: '预订' },
-  { word: 'specialty', phonetic: '/ˈspeʃəlti/', meaning: '特色菜' },
-  { word: 'vegetarian', phonetic: '/ˌvedʒəˈteriən/', meaning: '素食的' },
-  
-  // 第 9 关：银行业务（20 个）
-  { word: 'account', phonetic: '/əˈkaʊnt/', meaning: '账户' },
-  { word: 'balance', phonetic: '/ˈbæləns/', meaning: '余额' },
-  { word: 'bank statement', phonetic: '/bæŋk ˈsteɪtmənt/', meaning: '银行对账单' },
-  { word: 'borrow', phonetic: '/ˈbɔːroʊ/', meaning: '借款' },
-  { word: 'cheque', phonetic: '/tʃek/', meaning: '支票' },
-  { word: 'currency', phonetic: '/ˈkɜːrənsi/', meaning: '货币' },
-  { word: 'deposit', phonetic: '/dɪˈpɑːzɪt/', meaning: '存款' },
-  { word: 'exchange rate', phonetic: '/ɪksˈtʃeɪndʒ reɪt/', meaning: '汇率' },
-  { word: 'fund', phonetic: '/fʌnd/', meaning: '基金' },
-  { word: 'guarantor', phonetic: '/ˌɡærənˈtɔːr/', meaning: '担保人' },
-  { word: 'interest', phonetic: '/ˈɪntrəst/', meaning: '利息' },
-  { word: 'loan', phonetic: '/loʊn/', meaning: '贷款' },
-  { word: 'minimum', phonetic: '/ˈmɪnɪməm/', meaning: '最低' },
-  { word: 'overdraft', phonetic: '/ˈoʊvərdræft/', meaning: '透支' },
-  { word: 'payment', phonetic: '/ˈpeɪmənt/', meaning: '付款' },
-  { word: 'principal', phonetic: '/ˈprɪnsəpl/', meaning: '本金' },
-  { word: 'receipt', phonetic: '/rɪˈsiːt/', meaning: '收据' },
-  { word: 'savings', phonetic: '/ˈseɪvɪŋz/', meaning: '储蓄' },
-  { word: 'transfer', phonetic: '/trænsˈfɜːr/', meaning: '转账' },
-  { word: 'withdraw', phonetic: '/wɪðˈdrɔː/', meaning: '取款' },
-  
-  // 第 10 关：高级商务（20 个）
-  { word: 'arbitration', phonetic: '/ˌɑːrbɪˈtreɪʃn/', meaning: '仲裁' },
-  { word: 'breach', phonetic: '/briːtʃ/', meaning: '违反' },
-  { word: 'clause', phonetic: '/klɔːz/', meaning: '条款' },
-  { word: 'compliance', phonetic: '/kəmˈplaɪəns/', meaning: '合规' },
-  { word: 'confidential', phonetic: '/ˌkɑːnfɪˈdenʃl/', meaning: '机密的' },
-  { word: 'consultant', phonetic: '/kənˈsʌltənt/', meaning: '顾问' },
-  { word: 'disclosure', phonetic: '/dɪsˈkloʊʒər/', meaning: '披露' },
-  { word: 'endorsement', phonetic: '/enˈdɔːrsmənt/', meaning: '背书' },
-  { word: 'exemption', phonetic: '/ɪɡˈzempʃn/', meaning: '豁免' },
-  { word: 'fiduciary', phonetic: '/ˈfɪduːʃieri/', meaning: '信托的' },
-  { word: 'governance', phonetic: '/ˈɡʌvərnəns/', meaning: '治理' },
-  { word: 'indemnity', phonetic: '/ɪnˈdemnəti/', meaning: '赔偿' },
-  { word: 'jurisdiction', phonetic: '/ˌdʒʊrɪsˈdɪkʃn/', meaning: '管辖权' },
-  { word: 'liability', phonetic: '/ˌlaɪəˈbɪləti/', meaning: '责任' },
-  { word: 'mediation', phonetic: '/ˌmiːdiˈeɪʃn/', meaning: '调解' },
-  { word: 'obligation', phonetic: '/ˌɑːblɪˈɡeɪʃn/', meaning: '义务' },
-  { word: 'patent', phonetic: '/ˈpætnt/', meaning: '专利' },
-  { word: 'regulation', phonetic: '/ˌreɡjuˈleɪʃn/', meaning: '规章' },
-  { word: 'settlement', phonetic: '/ˈsetlmənt/', meaning: '和解' },
-  { word: 'warranty', phonetic: '/ˈwɔːrənti/', meaning: '保修' }
-]
+import { toeicWords } from './toeicWords.js'
 
 // 游戏状态
 const gameState = ref('home')
@@ -459,7 +239,7 @@ const showAbout = ref(false)
 const searchWord = ref('')
 
 // 关卡配置
-const wordsPerLevel = 10  // 每关 10 个单词
+const wordsPerLevel = 10
 const totalLevels = Math.ceil(toeicWords.length / wordsPerLevel)
 const passedLevels = ref(0)
 const totalScore = ref(0)
@@ -499,7 +279,6 @@ const initLevel = (level) => {
   const words = currentLevelWords.value
   const cardPairs = []
   
-  // 创建单词和释义配对
   words.forEach((word, idx) => {
     cardPairs.push({
       id: idx,
@@ -517,7 +296,6 @@ const initLevel = (level) => {
     })
   })
   
-  // 打乱卡牌
   const allCards = cardPairs.sort(() => Math.random() - 0.5)
   
   cards.value = allCards
@@ -527,7 +305,6 @@ const initLevel = (level) => {
   timeElapsed.value = 0
   score.value = level * 100
   
-  // 开始计时
   const timer = setInterval(() => {
     if (gameState.value === 'playing') {
       timeElapsed.value++
@@ -653,7 +430,6 @@ const loadProgress = () => {
   }
 }
 
-// 初始化
 loadProgress()
 </script>
 
@@ -703,7 +479,7 @@ loadProgress()
 .stat-label {
   display: block;
   font-size: 14px;
-  opacity: 0.9;
+  color: #7f8c8d;
   margin-bottom: 5px;
 }
 
@@ -785,14 +561,6 @@ loadProgress()
   font-size: 14px;
 }
 
-.star {
-  color: #bdc3c7;
-}
-
-.star.active {
-  color: #f39c12;
-}
-
 .game-stats {
   display: flex;
   gap: 20px;
@@ -843,22 +611,26 @@ loadProgress()
 }
 
 .card-front {
-  background: url('/card-back.jpg') center/cover;
-  font-size: 40px;
+  background: #95a5a6;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
+  border: 2px solid #7f8c8d;
 }
 
 .card-front::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255,255,255,0.1);
-  border-radius: 8px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 70%;
+  height: 80%;
+  background: url('/card-back.jpg') center/contain no-repeat;
+  opacity: 0.8;
+  filter: grayscale(100%);
 }
 
 .card-back {
@@ -947,11 +719,11 @@ loadProgress()
 }
 
 .star {
-  color: #ddd;
+  color: #bdc3c7;
 }
 
 .star.active {
-  color: #ffd700;
+  color: #f39c12;
 }
 
 .word-review {
@@ -1016,5 +788,86 @@ loadProgress()
   justify-content: flex-end;
   gap: 10px;
   margin-top: 15px;
+}
+
+/* 手机端适配 */
+@media (max-width: 768px) {
+  .toeic-game {
+    padding: 10px;
+  }
+  
+  .home-screen h1 {
+    font-size: 24px;
+  }
+  
+  .stats-bar {
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+  
+  .menu-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  
+  .menu-card {
+    padding: 20px 10px;
+  }
+  
+  .card-icon {
+    font-size: 36px;
+  }
+  
+  .game-board {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  
+  .card {
+    aspect-ratio: 3/4;
+  }
+  
+  .word {
+    font-size: 12px;
+  }
+  
+  .game-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  
+  .game-stats {
+    gap: 10px;
+    font-size: 12px;
+  }
+  
+  .result-card {
+    padding: 20px;
+  }
+  
+  .result-stats {
+    flex-direction: column;
+    gap: 15px;
+  }
+}
+
+/* 小屏幕手机 */
+@media (max-width: 480px) {
+  .game-board {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+  }
+  
+  .card-front, .card-back {
+    padding: 5px;
+  }
+  
+  .word {
+    font-size: 10px;
+  }
+  
+  .menu-cards {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
