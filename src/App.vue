@@ -25,25 +25,25 @@
       </div>
       
       <div class="menu-cards">
-        <el-card shadow="hover" class="menu-card" @click="startGame">
+        <el-card shadow="hover" class="menu-card" @click="startGame" @touchstart="startGame">
           <div class="card-icon">🎮</div>
           <h3>开始游戏</h3>
           <p>挑战 {{ totalLevels }} 个关卡</p>
         </el-card>
         
-        <el-card shadow="hover" class="menu-card" @click="showWordBook = true">
+        <el-card shadow="hover" class="menu-card" @click="openWordBook" @touchstart="openWordBook">
           <div class="card-icon">📖</div>
           <h3>单词本</h3>
           <p>{{ allWords.length }} 个核心词汇</p>
         </el-card>
         
-        <el-card shadow="hover" class="menu-card" @click="showRanking = true">
+        <el-card shadow="hover" class="menu-card" @click="openRanking" @touchstart="openRanking">
           <div class="card-icon">🏆</div>
           <h3>排行榜</h3>
           <p>看看谁最厉害</p>
         </el-card>
         
-        <el-card shadow="hover" class="menu-card" @click="showAbout = true">
+        <el-card shadow="hover" class="menu-card" @click="openAbout" @touchstart="openAbout">
           <div class="card-icon">ℹ️</div>
           <h3>关于游戏</h3>
           <p>游戏规则说明</p>
@@ -151,7 +151,14 @@
     </div>
     
     <!-- 单词本对话框 -->
-    <el-dialog v-model="showWordBook" title="📖 托业核心词汇" width="800px">
+    <el-dialog 
+      v-model="showWordBook" 
+      title="📖 托业核心词汇" 
+      width="800px"
+      :close-on-click-modal="true"
+      append-to-body
+      destroy-on-close
+    >
       <el-input 
         v-model="searchWord" 
         placeholder="搜索单词..." 
@@ -176,17 +183,138 @@
     </el-dialog>
     
     <!-- 排行榜对话框 -->
-    <el-dialog v-model="showRanking" title="🏆 排行榜" width="500px">
-      <el-table :data="ranking" style="width: 100%">
-        <el-table-column type="index" label="排名" width="80" />
-        <el-table-column prop="name" label="玩家" width="120" />
-        <el-table-column prop="score" label="总分" />
-        <el-table-column prop="levels" label="通关数" />
-      </el-table>
+    <el-dialog 
+      v-model="showRanking" 
+      title="🏆 排行榜" 
+      width="600px"
+      :close-on-click-modal="true"
+      append-to-body
+      destroy-on-close
+    >
+      <div class="ranking-tabs">
+        <el-tabs>
+          <el-tab-pane label="🌍 本地排行">
+            <div v-if="localRanking.length === 0" class="empty-tip">
+              <p>还没有记录哦，快来挑战吧！</p>
+            </div>
+            <el-table v-else :data="localRanking" style="width: 100%" max-height="400">
+              <el-table-column type="index" label="排名" width="80" />
+              <el-table-column prop="name" label="玩家" width="150" />
+              <el-table-column prop="score" label="分数" width="100">
+                <template #default="{ row }">
+                  <span :class="{ 'highlight': row.name === nickname }">{{ row.score }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="levels" label="关卡" width="80" />
+              <el-table-column prop="time" label="用时" width="100" />
+              <el-table-column prop="date" label="日期" />
+            </el-table>
+          </el-tab-pane>
+          <el-tab-pane label="📥 挑战好友">
+            <div class="challenge-section">
+              <p class="tip">输入好友的分享码，挑战 TA 的成绩！</p>
+              <el-input 
+                v-model="challengeCode" 
+                placeholder="例如：TOEIC-5000-LV10-ABCD"
+                maxlength="25"
+                style="margin-bottom: 15px"
+              />
+              <el-button type="primary" @click="verifyChallenge" :disabled="!challengeCode">
+                验证挑战码
+              </el-button>
+              <div v-if="challengeResult" class="challenge-result">
+                <el-alert 
+                  :title="challengeResult.title" 
+                  :type="challengeResult.type" 
+                  :closable="false" 
+                  show-icon 
+                />
+                <div v-if="challengeResult.success" class="challenge-target">
+                  <p><strong>目标成绩：</strong>{{ challengeResult.score }} 分</p>
+                  <p><strong>目标关卡：</strong>第 {{ challengeResult.level }} 关</p>
+                  <el-button type="success" @click="startChallenge">开始挑战</el-button>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showRanking = false">关闭</el-button>
+          <el-button type="danger" @click="clearRanking">清除记录</el-button>
+        </div>
+      </template>
+    </el-dialog>
+    
+    <!-- 昵称输入对话框 -->
+    <el-dialog 
+      v-model="showNickname" 
+      title="🎮 欢迎来到托业单词游戏！" 
+      width="450px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :show-close="false"
+    >
+      <p>给自己起个昵称吧（可以随时更改）：</p>
+      <el-input 
+        v-model="nickname" 
+        placeholder="例如：英语达人、学习小王"
+        maxlength="20"
+        @keyup.enter="saveNickname"
+      />
+      <template #footer>
+        <el-button type="primary" @click="saveNickname">开始游戏</el-button>
+      </template>
+    </el-dialog>
+    
+    <!-- 分享对话框 -->
+    <el-dialog v-model="showShareDialog" title="🎉 分享你的成绩！" width="500px">
+      <div class="share-content">
+        <div class="share-card">
+          <div class="share-header">🎴 托业单词记忆大挑战</div>
+          <div class="share-stats">
+            <div class="share-stat">
+              <span class="label">玩家</span>
+              <span class="value">{{ nickname || '匿名玩家' }}</span>
+            </div>
+            <div class="share-stat">
+              <span class="label">分数</span>
+              <span class="value highlight">{{ score }}</span>
+            </div>
+            <div class="share-stat">
+              <span class="label">关卡</span>
+              <span class="value">{{ currentLevel }}</span>
+            </div>
+            <div class="share-stat">
+              <span class="label">步数</span>
+              <span class="value">{{ moves }}</span>
+            </div>
+          </div>
+          <div class="share-code">
+            <p>分享码（好友可挑战）：</p>
+            <code>{{ shareCode }}</code>
+          </div>
+        </div>
+        <div class="share-actions">
+          <el-button @click="copyShareCode">📋 复制分享码</el-button>
+          <el-button type="primary" @click="shareToWechat">📱 分享给好友</el-button>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="showShareDialog = false">关闭</el-button>
+      </template>
     </el-dialog>
     
     <!-- 关于对话框 -->
-    <el-dialog v-model="showAbout" title="ℹ️ 关于游戏" width="600px">
+    <el-dialog 
+      v-model="showAbout" 
+      title="ℹ️ 关于游戏" 
+      width="600px"
+      :close-on-click-modal="true"
+      append-to-body
+      destroy-on-close
+    >
       <div class="about-content">
         <h3>🎮 游戏规则</h3>
         <ol>
@@ -236,7 +364,15 @@ const matchedPairs = ref(0)
 const showWordBook = ref(false)
 const showRanking = ref(false)
 const showAbout = ref(false)
+const showNickname = ref(false)
 const searchWord = ref('')
+const nickname = ref('')
+const showShareDialog = ref(false)
+const shareCode = ref('')
+const challengeCode = ref('')
+const challengeResult = ref(null)
+const isChallengeMode = ref(false)
+const challengeTarget = ref(null)
 
 // 关卡配置
 const wordsPerLevel = 10
@@ -244,14 +380,58 @@ const totalLevels = Math.ceil(toeicWords.length / wordsPerLevel)
 const passedLevels = ref(0)
 const totalScore = ref(0)
 
-// 排行榜数据
-const ranking = ref([
-  { name: '张三', score: 5000, levels: 10 },
-  { name: '李四', score: 4500, levels: 10 },
-  { name: '王五', score: 3800, levels: 8 },
-  { name: '赵六', score: 3200, levels: 7 },
-  { name: '小明', score: 2800, levels: 5 }
-])
+// 排行榜数据（本地存储）
+const localRanking = ref([])
+
+// 生成分享码
+const generateShareCode = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < 4; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return `TOEIC-${score.value}-${currentLevel.value}-${code}`
+}
+
+// 验证分享码格式
+const isValidShareCode = (code) => {
+  return /^TOEIC-\d+-\d+-[A-HJ-NP-Z2-9]{4}$/.test(code)
+}
+
+// 加载排行榜
+const loadRanking = () => {
+  const saved = localStorage.getItem('toeicGame_ranking')
+  if (saved) {
+    localRanking.value = JSON.parse(saved)
+  }
+  // 如果没有昵称，提示输入
+  if (!nickname.value) {
+    const savedName = localStorage.getItem('toeicGame_nickname')
+    if (savedName) {
+      nickname.value = savedName
+    } else {
+      showNickname.value = true
+    }
+  }
+}
+
+// 保存排行榜
+const saveRanking = () => {
+  // 按分数降序排序
+  localRanking.value.sort((a, b) => b.score - a.score)
+  // 只保留前 50 名
+  localRanking.value = localRanking.value.slice(0, 50)
+  localStorage.setItem('toeicGame_ranking', JSON.stringify(localRanking.value))
+}
+
+// 保存进度
+const saveProgress = () => {
+  localStorage.setItem('toeicGame_progress', JSON.stringify({
+    passedLevels: passedLevels.value,
+    totalScore: totalScore.value,
+    nickname: nickname.value
+  }))
+}
 
 // 计算属性
 const allWords = computed(() => toeicWords)
@@ -367,10 +547,21 @@ const levelComplete = () => {
   passedLevels.value = Math.max(passedLevels.value, currentLevel.value)
   totalScore.value += score.value
   
-  localStorage.setItem('toeicGame_progress', JSON.stringify({
-    passedLevels: passedLevels.value,
-    totalScore: totalScore.value
-  }))
+  // 保存到排行榜
+  const record = {
+    name: nickname.value || '匿名玩家',
+    score: totalScore.value,
+    levels: passedLevels.value,
+    time: formatTime(timeElapsed.value),
+    date: new Date().toLocaleDateString('zh-CN')
+  }
+  localRanking.value.push(record)
+  saveRanking()
+  saveProgress()
+  
+  // 生成分享码
+  shareCode.value = generateShareCode()
+  showShareDialog.value = true
 }
 
 // 下一关
@@ -420,6 +611,21 @@ const exportWords = () => {
   ElMessage.success('单词表已导出')
 }
 
+// 打开单词本
+const openWordBook = () => {
+  showWordBook.value = true
+}
+
+// 打开排行榜
+const openRanking = () => {
+  showRanking.value = true
+}
+
+// 打开关于
+const openAbout = () => {
+  showAbout.value = true
+}
+
 // 加载进度
 const loadProgress = () => {
   const saved = localStorage.getItem('toeicGame_progress')
@@ -427,6 +633,88 @@ const loadProgress = () => {
     const data = JSON.parse(saved)
     passedLevels.value = data.passedLevels || 0
     totalScore.value = data.totalScore || 0
+    if (data.nickname) {
+      nickname.value = data.nickname
+    }
+  }
+  loadRanking()
+}
+
+// 保存昵称
+const saveNickname = () => {
+  if (!nickname.value.trim()) {
+    ElMessage.warning('请输入昵称')
+    return
+  }
+  localStorage.setItem('toeicGame_nickname', nickname.value)
+  showNickname.value = false
+  ElMessage.success(`欢迎，${nickname.value}！`)
+}
+
+// 验证挑战码
+const verifyChallenge = () => {
+  if (!isValidShareCode(challengeCode.value)) {
+    challengeResult.value = {
+      title: '无效的挑战码，请检查格式',
+      type: 'error',
+      success: false
+    }
+    return
+  }
+  
+  // 解析挑战码
+  const parts = challengeCode.value.split('-')
+  const targetScore = parseInt(parts[1])
+  const targetLevel = parseInt(parts[2])
+  
+  challengeResult.value = {
+    title: '挑战码有效！准备好接受挑战了吗？',
+    type: 'success',
+    success: true,
+    score: targetScore,
+    level: targetLevel
+  }
+  challengeTarget.value = { score: targetScore, level: targetLevel }
+}
+
+// 开始挑战
+const startChallenge = () => {
+  if (!challengeTarget.value) return
+  
+  isChallengeMode.value = true
+  showRanking.value = false
+  currentLevel.value = 1
+  gameState.value = 'playing'
+  initLevel(1)
+  ElMessage.info(`挑战目标：超过 ${challengeTarget.value.score} 分！`)
+}
+
+// 复制分享码
+const copyShareCode = () => {
+  navigator.clipboard.writeText(shareCode.value).then(() => {
+    ElMessage.success('分享码已复制！')
+  }).catch(() => {
+    ElMessage.error('复制失败，请手动复制')
+  })
+}
+
+// 分享到微信
+const shareToWechat = () => {
+  const text = `🎴 托业单词记忆大挑战\n玩家：${nickname.value || '匿名'}\n分数：${totalScore.value}\n关卡：${passedLevels.value}\n分享码：${shareCode.value}\n快来挑战我吧！`
+  navigator.clipboard.writeText(text).then(() => {
+    ElMessage.success('已复制，去微信粘贴分享给好友吧！')
+  }).catch(() => {
+    ElMessage.error('复制失败')
+  })
+}
+
+// 清除排行榜
+const clearRanking = () => {
+  if (confirm('确定要清除所有排行榜记录吗？此操作不可恢复！')) {
+    localRanking.value = []
+    localStorage.removeItem('toeicGame_ranking')
+    ElMessage.success('已清除排行榜')
+    showRanking.value = false
   }
 }
 
@@ -505,6 +793,13 @@ loadProgress()
   padding: 30px 20px;
   background: white;
   border: 1px solid #e0e0e0;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.menu-card:active {
+  transform: scale(0.98);
 }
 
 .menu-card:hover {
@@ -869,5 +1164,129 @@ loadProgress()
   .menu-cards {
     grid-template-columns: 1fr;
   }
+}
+
+/* 排行榜样式 */
+.ranking-tabs {
+  margin-top: 10px;
+}
+
+.empty-tip {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+
+.empty-tip p {
+  font-size: 16px;
+  margin: 0;
+}
+
+.highlight {
+  color: #409eff;
+  font-weight: bold;
+}
+
+.challenge-section {
+  padding: 20px 0;
+}
+
+.challenge-section .tip {
+  color: #666;
+  margin-bottom: 15px;
+}
+
+.challenge-result {
+  margin-top: 20px;
+}
+
+.challenge-target {
+  margin-top: 15px;
+  padding: 15px;
+  background: #f0f9ff;
+  border-radius: 8px;
+}
+
+.challenge-target p {
+  margin: 8px 0;
+  color: #333;
+}
+
+/* 分享卡片样式 */
+.share-content {
+  text-align: center;
+}
+
+.share-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 30px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.share-header {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.share-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.share-stat {
+  background: rgba(255,255,255,0.2);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.share-stat .label {
+  display: block;
+  font-size: 12px;
+  opacity: 0.8;
+  margin-bottom: 5px;
+}
+
+.share-stat .value {
+  display: block;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.share-stat .value.highlight {
+  font-size: 28px;
+  color: #ffd700;
+}
+
+.share-code {
+  background: rgba(255,255,255,0.9);
+  color: #333;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.share-code p {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.share-code code {
+  display: block;
+  font-size: 18px;
+  font-weight: bold;
+  color: #667eea;
+  font-family: monospace;
+  letter-spacing: 2px;
+}
+
+.share-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
 }
 </style>
