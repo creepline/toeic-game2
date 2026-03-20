@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🎴 托业单词记忆大挑战 - TOEIC Vocabulary Game</title>
+    <meta name="description" content="趣味学英语，挑战你的托业词汇量！">
+    <link rel="preconnect" href="https://toeic-game-tau.vercel.app">
+    <link rel="dns-prefetch" href="https://toeic-game-tau.vercel.app">
+    <script type="module" crossorigin src="/assets/index-BD3V7-IW.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/icons-C6YUxYeV.js">
+    <link rel="modulepreload" crossorigin href="/assets/vue-vendor-CSKEY9xF.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-x-XRdPkc.css">
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
+      #loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        z-index: 9999;
+        padding: 20px;
+      }
+      #loading h1 {
+        font-size: 24px;
+        margin-bottom: 40px;
+        text-align: center;
+        line-height: 1.5;
+      }
+      .spinner {
+        width: 60px;
+        height: 60px;
+        border: 4px solid rgba(255,255,255,0.2);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .progress {
+        width: 200px;
+        height: 6px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 3px;
+        margin-top: 30px;
+        overflow: hidden;
+      }
+      .progress-bar {
+        height: 100%;
+        background: white;
+        width: 0%;
+        transition: width 0.3s;
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+      }
+      .loading-text {
+        margin-top: 15px;
+        font-size: 13px;
+        opacity: 0.9;
+      }
+      .tips {
+        margin-top: 30px;
+        font-size: 12px;
+        opacity: 0.7;
+        text-align: center;
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="loading">
+      <h1>🎴 托业单词记忆大挑战</h1>
+      <div class="spinner"></div>
+      <div class="progress">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <div class="loading-text" id="loading-text">正在加载...</div>
+      <div class="tips">
+        首次加载可能需要 10-30 秒<br>
+        请耐心等待，感谢理解 ❤️
+      </div>
+    </div>
+    <script>
+      var progress = 0;
+      var loadingText = document.getElementById('loading-text');
+      var progressBar = document.getElementById('progress-bar');
+      
+      // 模拟进度
+      var timer = setInterval(function() {
+        if (progress < 90) {
+          progress += Math.random() * 10;
+          progressBar.style.width = Math.min(progress, 90) + '%';
+        }
+      }, 500);
+      
+      // 更新加载提示
+      var texts = ['正在加载资源...', '正在初始化...', '准备就绪...'];
+      var textIdx = 0;
+      var textTimer = setInterval(function() {
+        textIdx = (textIdx + 1) % texts.length;
+        loadingText.textContent = texts[textIdx];
+      }, 2000);
+      
+      window.addEventListener('load', function() {
+        clearInterval(timer);
+        clearInterval(textTimer);
+        progressBar.style.width = '100%';
+        loadingText.textContent = '加载完成！';
+        
+        setTimeout(function() {
+          var loading = document.getElementById('loading');
+          loading.style.opacity = '0';
+          loading.style.transition = 'opacity 0.5s';
+          setTimeout(function() {
+            loading.style.display = 'none';
+          }, 500);
+        }, 800);
+      });
+      
+      // 超时提示
+      setTimeout(function() {
+        var loading = document.getElementById('loading');
+        if (loading && loading.style.display !== 'none') {
+          loadingText.textContent = '⏳ 加载较慢，请耐心等待...';
+        }
+      }, 15000);
+    </script>
+  </body>
+</html>
