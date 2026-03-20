@@ -88,6 +88,16 @@
             <div class="card-back">
               <div class="word-content">
                 <div class="word">{{ card.text }}</div>
+                <el-button 
+                  v-if="card.flipped || card.matched"
+                  circle 
+                  type="primary" 
+                  size="small"
+                  class="card-play-btn"
+                  @click.stop="playCardWord(card.text)"
+                >
+                  🔊
+                </el-button>
               </div>
             </div>
           </div>
@@ -154,26 +164,143 @@
     <el-dialog 
       v-model="showWordBook" 
       title="📖 托业核心词汇" 
-      width="800px"
+      width="900px"
       :close-on-click-modal="true"
       append-to-body
       destroy-on-close
     >
-      <el-input 
-        v-model="searchWord" 
-        placeholder="搜索单词..." 
-        clearable
-        style="margin-bottom: 15px"
-      >
-        <template #prefix>
-          <el-icon><Search /></el-icon>
-        </template>
-      </el-input>
-      <el-table :data="filteredWords" style="width: 100%" max-height="500">
-        <el-table-column prop="word" label="单词" width="150" />
-        <el-table-column prop="phonetic" label="音标" width="120" />
-        <el-table-column prop="meaning" label="释义" />
-      </el-table>
+      <!-- 关卡选择 -->
+      <div class="wordbook-tabs">
+        <el-tabs v-model="wordBookTab">
+          <el-tab-pane label="📚 按关卡学习" name="levels">
+            <div class="level-selector">
+              <el-button 
+                v-for="i in totalLevels" 
+                :key="i"
+                :type="selectedLevel === i ? 'primary' : 'default'"
+                size="small"
+                @click="selectLevel(i)"
+              >
+                第{{ i }}关
+              </el-button>
+            </div>
+          </el-tab-pane>
+          <el-tab-pane label="🔍 搜索单词" name="search">
+            <el-input 
+              v-model="searchWord" 
+              placeholder="输入单词或释义搜索..." 
+              clearable
+              size="large"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
+      
+      <!-- 单词列表 -->
+      <div class="word-list-container">
+        <div v-if="wordBookTab === 'levels'" class="level-words">
+          <div class="level-header">
+            <h3>第 {{ selectedLevel }} 关 - {{ getLevelName(selectedLevel) }}</h3>
+            <div class="level-actions">
+              <el-button type="success" size="small" @click="playAllWords">
+                🔊 播放全部
+              </el-button>
+              <el-button type="warning" size="small" @click="toggleAutoPlay">
+                {{ autoPlay ? '⏸ 停止连读' : '▶ 自动连读' }}
+              </el-button>
+            </div>
+          </div>
+          <div class="word-cards">
+            <div 
+              v-for="(word, idx) in getLevelWords(selectedLevel)" 
+              :key="idx"
+              class="word-card"
+              :class="{ 'playing': currentPlayingIndex === idx && isPlaying, 'expanded': expandedWord === idx }"
+            >
+              <div class="word-main">
+                <span class="word-text">{{ word.word }}</span>
+                <span class="word-phonetic">{{ word.phonetic }}</span>
+                <div class="word-actions">
+                  <el-button 
+                    circle 
+                    type="primary" 
+                    size="small"
+                    class="play-btn"
+                    @click="playWord(word, idx)"
+                  >
+                    🔊
+                  </el-button>
+                  <el-button 
+                    v-if="word.example"
+                    circle 
+                    type="info" 
+                    size="small"
+                    class="example-btn"
+                    @click="toggleExample(idx)"
+                  >
+                    📖
+                  </el-button>
+                </div>
+              </div>
+              <div class="word-meaning">{{ word.meaning }}</div>
+              
+              <!-- 例句区域 -->
+              <div v-if="word.example && expandedWord === idx" class="word-example">
+                <div class="example-text">
+                  <span class="example-label">例句：</span>
+                  <p>{{ word.example }}</p>
+                </div>
+                <div v-if="word.exampleTranslation" class="example-translation">
+                  {{ word.exampleTranslation }}
+                </div>
+                <el-button 
+                  size="small" 
+                  type="primary" 
+                  link
+                  @click="playExample(word)"
+                >
+                  🔊 播放例句
+                </el-button>
+              </div>
+              
+              <div class="word-index">{{ idx + 1 }}/{{ getLevelWords(selectedLevel).length }}</div>
+            </div>
+          </div>
+        </div>
+        
+        <div v-else class="search-results">
+          <div v-if="filteredWords.length === 0" class="empty-tip">
+            <el-empty description="没有找到匹配的单词" />
+          </div>
+          <div v-else class="word-cards">
+            <div 
+              v-for="(word, idx) in filteredWords" 
+              :key="idx"
+              class="word-card"
+            >
+              <div class="word-main">
+                <span class="word-text">{{ word.word }}</span>
+                <span class="word-phonetic">{{ word.phonetic }}</span>
+                <el-button 
+                  circle 
+                  type="primary" 
+                  size="small"
+                  class="play-btn"
+                  @click="playWord(word, -1)"
+                >
+                  🔊
+                </el-button>
+              </div>
+              <div class="word-meaning">{{ word.meaning }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="showWordBook = false">关闭</el-button>
@@ -350,7 +477,7 @@
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Clock, Trophy, Refresh } from '@element-plus/icons-vue'
-import { toeicWords } from './toeicWords.js'
+import { toeicWords } from './toeicWords-full.js'
 
 // 游戏状态
 const gameState = ref('home')
@@ -374,11 +501,76 @@ const challengeResult = ref(null)
 const isChallengeMode = ref(false)
 const challengeTarget = ref(null)
 
+// 单词本相关
+const wordBookTab = ref('levels')
+const selectedLevel = ref(1)
+const isPlaying = ref(false)
+const currentPlayingIndex = ref(-1)
+const autoPlay = ref(false)
+const speechSynth = ref(null)
+const expandedWord = ref(-1)
+const voicesLoaded = ref(false)
+
+// 加载语音列表（浏览器需要）
+const loadVoices = () => {
+  const voices = window.speechSynthesis.getVoices()
+  if (voices.length > 0) {
+    voicesLoaded.value = true
+    console.log('已加载语音:', voices.map(v => `${v.name} (${v.lang})`).slice(0, 5))
+  }
+}
+
+// 浏览器语音加载事件
+if (typeof window !== 'undefined' && window.speechSynthesis) {
+  loadVoices()
+  if (window.speechSynthesis.onvoiceschanged !== undefined) {
+    window.speechSynthesis.onvoiceschanged = loadVoices
+  }
+}
+
 // 关卡配置
 const wordsPerLevel = 10
 const totalLevels = Math.ceil(toeicWords.length / wordsPerLevel)
 const passedLevels = ref(0)
 const totalScore = ref(0)
+
+// 关卡名称（200 关完整主题）
+const levelThemes = [
+  '求职招聘', '办公室事务', '市场营销', '银行业务', '商务旅行',
+  '餐饮', '国际贸易', '公司法务', '人力资源管理', '财务会计',
+  '金融投资', '生产制造', '保险养老', '交通通勤', '行业领域',
+  '合同法律', '薪酬福利', '经营管理', '公司企业', '投资证券',
+  '董事会', '公告信息', '商务信函', '邀请活动', '新闻报道',
+  '体育比赛', '统计数字', '统计图表', '广播电视', '天气报告',
+  '计算机', '互联网', '人工智能', '数据分析', '项目管理',
+  '客户服务', '供应链', '物流配送', '质量控制', '安全健康',
+  '环境保护', '能源电力', '房地产', '建筑工程', '设计创意',
+  '媒体传播', '教育培训', '医疗健康', '制药生物', '农业科技',
+  '纺织服装', '食品饮料', '家居用品', '电子产品', '机械设备',
+  '汽车工业', '航空航天', '船舶海运', '铁路运输', '公共交通',
+  '酒店旅游', '娱乐休闲', '健身运动', '美容化妆', '时尚奢侈品',
+  '零售批发', '电子商务', '广告公关', '市场调研', '咨询顾问',
+  '法律法务', '税务审计', '风险管理', '合规监管', '政府采购',
+  '非营利组织', '政府机构', '国际组织', '外交事务', '军事国防',
+  '社会科学', '自然科学', '数学统计', '物理化学', '生物科学',
+  '地质环境', '天文气象', '海洋科学', '心理学', '哲学宗教',
+  '文学艺术', '音乐舞蹈', '戏剧电影', '摄影摄像', '博物馆图书馆',
+  '社交礼仪', '人际关系', '沟通技巧', '领导力', '团队合作',
+  '时间管理', '决策能力', '创新思维', '问题解决', '职业规划',
+  '创业指导', '投资理财', '保险规划', '退休计划', '税务筹划',
+  '国际贸易术语', '商务谈判', '跨文化交流', '外语学习', '翻译技巧',
+  '会议组织', '活动策划', '演讲演示', '报告撰写', '公文写作',
+  '电话会议', '视频通话', '邮件沟通', '即时通讯', '社交媒体',
+  '办公自动化', '文档管理', '数据处理', '信息检索', '知识管理',
+  '商务旅行准备', '机场手续', '机上服务', '酒店入住', '餐饮预订',
+  '当地交通', '会议安排', '商务拜访', '礼品赠送', '文化禁忌',
+  '紧急情况', '医疗服务', '保险理赔', '法律咨询', '使领馆联系'
+]
+
+// 获取关卡名称
+const getLevelName = (level) => {
+  return levelThemes[level - 1] || `第${level}关`
+}
 
 // 排行榜数据（本地存储）
 const localRanking = ref([])
@@ -718,6 +910,165 @@ const clearRanking = () => {
   }
 }
 
+// ========== 单词本发音功能 ==========
+
+// 选择关卡
+const selectLevel = (level) => {
+  selectedLevel.value = level
+  stopPlaying()
+  // 强制更新视图
+  setTimeout(() => {
+    window.scrollTo(0, 0)
+  }, 100)
+}
+
+// 获取当前关卡单词（用于单词本）
+const getLevelWords = (level) => {
+  const start = (level - 1) * wordsPerLevel
+  return toeicWords.slice(start, start + wordsPerLevel)
+}
+
+// 播放单词发音
+const playWord = (word, index = -1) => {
+  if (!window.speechSynthesis) {
+    ElMessage.warning('您的浏览器不支持发音功能')
+    return
+  }
+  
+  // 停止当前播放
+  window.speechSynthesis.cancel()
+  
+  currentPlayingIndex.value = index
+  isPlaying.value = true
+  
+  // 创建语音实例
+  const utterance = new SpeechSynthesisUtterance(word.word)
+  utterance.lang = 'en-US'
+  utterance.rate = 0.8
+  utterance.pitch = 1
+  
+  // 尝试获取英语语音
+  const voices = window.speechSynthesis.getVoices()
+  const enVoice = voices.find(v => v.lang.includes('en'))
+  if (enVoice) {
+    utterance.voice = enVoice
+  }
+  
+  utterance.onend = () => {
+    isPlaying.value = false
+    currentPlayingIndex.value = -1
+    
+    // 自动播放下一个
+    const levelWords = getLevelWords(selectedLevel.value)
+    if (autoPlay.value && index >= 0 && index < levelWords.length - 1) {
+      setTimeout(() => {
+        playWord(levelWords[index + 1], index + 1)
+      }, 500)
+    }
+  }
+  
+  utterance.onerror = (event) => {
+    console.error('发音错误:', event)
+    isPlaying.value = false
+    currentPlayingIndex.value = -1
+    ElMessage.error('发音失败，请检查浏览器设置')
+  }
+  
+  speechSynth.value = utterance
+  window.speechSynthesis.speak(utterance)
+  
+  // 调试信息
+  console.log('播放单词:', word.word, '语音:', enVoice?.name || '默认')
+}
+
+// 播放卡片单词（游戏模式）
+const playCardWord = (text) => {
+  if (!window.speechSynthesis) {
+    ElMessage.warning('您的浏览器不支持发音功能')
+    return
+  }
+  
+  if (speechSynth.value) {
+    speechSynth.value.cancel()
+  }
+  
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.lang = 'en-US'
+  utterance.rate = 0.8
+  utterance.pitch = 1
+  
+  utterance.onend = () => {
+    isPlaying.value = false
+  }
+  
+  utterance.onerror = () => {
+    isPlaying.value = false
+  }
+  
+  speechSynth.value = utterance
+  window.speechSynthesis.speak(utterance)
+}
+
+// 播放全部单词
+const playAllWords = () => {
+  const levelWords = getLevelWords(selectedLevel.value)
+  if (levelWords.length === 0) {
+    ElMessage.warning('当前关卡没有单词')
+    return
+  }
+  autoPlay.value = true
+  playWord(levelWords[0], 0)
+}
+
+// 停止播放
+const stopPlaying = () => {
+  if (speechSynth.value) {
+    speechSynth.value.cancel()
+  }
+  isPlaying.value = false
+  currentPlayingIndex.value = -1
+  autoPlay.value = false
+}
+
+// 切换自动播放
+const toggleAutoPlay = () => {
+  if (autoPlay.value) {
+    stopPlaying()
+  } else {
+    playAllWords()
+  }
+}
+
+// 展开/收起例句
+const toggleExample = (idx) => {
+  expandedWord.value = expandedWord.value === idx ? -1 : idx
+}
+
+// 播放例句
+const playExample = (word) => {
+  if (!word.example || !window.speechSynthesis) {
+    ElMessage.warning('该单词没有例句')
+    return
+  }
+  
+  if (speechSynth.value) {
+    speechSynth.value.cancel()
+  }
+  
+  const utterance = new SpeechSynthesisUtterance(word.example)
+  utterance.lang = 'en-US'
+  utterance.rate = 0.9
+  utterance.pitch = 1
+  
+  window.speechSynthesis.speak(utterance)
+}
+
+// 监听对话框关闭
+const closeWordBook = () => {
+  showWordBook.value = false
+  stopPlaying()
+}
+
 loadProgress()
 </script>
 
@@ -906,26 +1257,12 @@ loadProgress()
 }
 
 .card-front {
-  background: #95a5a6;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  overflow: hidden;
-  border: 2px solid #7f8c8d;
-}
-
-.card-front::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 70%;
-  height: 80%;
-  background: url('/card-back.jpg') center/contain no-repeat;
-  opacity: 0.8;
-  filter: grayscale(100%);
+  border: 2px solid #5a67d8;
+  font-size: 32px;
 }
 
 .card-back {
@@ -938,13 +1275,24 @@ loadProgress()
 .word-content {
   text-align: center;
   padding: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
 .word {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: bold;
   color: #333;
   word-break: break-word;
+}
+
+.card-play-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
 }
 
 .card.matched .card-back {
@@ -1123,7 +1471,7 @@ loadProgress()
   }
   
   .word {
-    font-size: 12px;
+    font-size: 16px;
   }
   
   .game-header {
@@ -1158,7 +1506,7 @@ loadProgress()
   }
   
   .word {
-    font-size: 10px;
+    font-size: 14px;
   }
   
   .menu-cards {
@@ -1210,6 +1558,191 @@ loadProgress()
 .challenge-target p {
   margin: 8px 0;
   color: #333;
+}
+
+/* 单词本样式 */
+.wordbook-tabs {
+  margin-bottom: 20px;
+}
+
+.level-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 15px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.level-selector .el-button {
+  min-width: 80px;
+}
+
+.word-list-container {
+  max-height: 500px;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.level-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  color: white;
+}
+
+.level-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.level-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.level-actions .el-button {
+  background: rgba(255,255,255,0.2);
+  border-color: rgba(255,255,255,0.3);
+  color: white;
+}
+
+.level-actions .el-button:hover {
+  background: rgba(255,255,255,0.3);
+}
+
+.word-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.word-card {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 15px;
+  transition: all 0.3s;
+  position: relative;
+  cursor: pointer;
+}
+
+.word-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+  transform: translateY(-2px);
+}
+
+.word-card.playing {
+  border-color: #67c23a;
+  background: #f0f9ff;
+  box-shadow: 0 4px 12px rgba(103, 194, 58, 0.3);
+}
+
+.word-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.word-text {
+  font-size: 20px;
+  font-weight: bold;
+  color: #333;
+  flex: 1;
+}
+
+.word-phonetic {
+  font-size: 14px;
+  color: #999;
+  font-family: 'Arial', sans-serif;
+}
+
+.play-btn {
+  flex-shrink: 0;
+}
+
+.word-meaning {
+  font-size: 15px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.word-index {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 12px;
+  color: #ccc;
+}
+
+.word-actions {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.word-example {
+  margin-top: 12px;
+  padding: 12px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 8px;
+  border-left: 3px solid #3b82f6;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.example-text {
+  margin-bottom: 8px;
+}
+
+.example-label {
+  display: inline-block;
+  font-size: 12px;
+  color: #3b82f6;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.example-text p {
+  margin: 0;
+  font-size: 15px;
+  color: #1e40af;
+  line-height: 1.6;
+  font-style: italic;
+}
+
+.example-translation {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.word-card.expanded {
+  border-color: #3b82f6;
+  background: #f8fafc;
+}
+
+.empty-tip {
+  text-align: center;
+  padding: 60px 20px;
 }
 
 /* 分享卡片样式 */

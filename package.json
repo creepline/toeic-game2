@@ -10,11 +10,13 @@
   },
   "dependencies": {
     "element-plus": "^2.4.4",
+    "iconv-lite": "^0.7.2",
     "vue": "^3.4.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.5.2",
     "gh-pages": "^6.3.0",
+    "terser": "^5.46.1",
     "vite": "^5.0.10"
   }
 }
